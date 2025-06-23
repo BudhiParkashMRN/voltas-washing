@@ -246,7 +246,7 @@ const App = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-purple-100 flex items-center justify-center p-2 font-inter">
       {/* Main game container, simulating a 400px width and adaptive height */}
-      <div className="bg-white rounded-[25px] shadow-2xl p-4 w-[400px] h-[580px] flex flex-col items-center space-y-4 border-4 border-purple-300 relative overflow-y-auto">
+      <div className="bg-white rounded-[25px] shadow-2xl p-4 max-w-[400px] w-full h-[580px] flex flex-col items-center space-y-4 border-4 border-purple-300 relative overflow-y-auto">
         {/* Voltas Logo */}
         <img
           src="https://pimwp.s3-accelerate.amazonaws.com/2023/11/Untitled-design-64.png"
@@ -668,7 +668,7 @@ const App = () => {
           .wash-feature-bubble:nth-child(2) { top: 30%; left: 80%; transform: translateY(-50%); animation-delay: 0.4s; }
           .wash-feature-bubble:nth-child(3) { top: 70%; left: 20%; transform: translateY(-50%); animation-delay: 0.7s; }
           .wash-feature-bubble:nth-child(4) { top: 90%; left: 50%; transform: translateX(-50%); animation-delay: 1.0s; }
-          .wash-feature-bubble:nth-child(5) { top: 30%; left: 20%; transform: translateY(-50%); animation-delay: 1.3s; }
+            .wash-feature-bubble:nth-child(5) { top: 30%; left: 20%; transform: translateY(-50%); animation-delay: 1.3s; }
 
           /* Initial Screen Bubbles */
           .initial-bubble {
