@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 
 // Define initial dirty clothes with new image URLs
 const initialDirtyClothes = [
@@ -9,61 +9,41 @@ const initialDirtyClothes = [
 ];
 
 // Features to display as bubbles during washing
-// Updated according to product highlights: Gentle Wave, Stain Expert, Steam Wash
 const washFeatures = ['Gentle Wave', 'Stain Expert', 'Steam Wash', 'Spin', 'Rinse'];
-const initialBubbles = ['Fully Automatic!', 'Gentle on Clothes!', 'Tough on Stains!', 'Steam Power!', 'Hassle-Free Laundry!']; // Updated bubbles for initial screen
+const initialBubbles = ['Fully Automatic!', 'Gentle on Clothes!', 'Tough on Stains!', 'Steam Power!', 'Hassle-Free Laundry!'];
 
 const App = () => {
   // Game state
   const [dirtyClothes, setDirtyClothes] = useState(initialDirtyClothes);
   const [clothesInMachine, setClothesInMachine] = useState([]);
-  const [washMode, setWashMode] = useState(null); // 'Quick', 'Eco', 'Heavy'
+  const [washMode, setWashMode] = useState(null);
   const [isWashing, setIsWashing] = useState(false);
   const [isClean, setIsClean] = useState(false);
   const [message, setMessage] = useState("Drag clothes into the washing machine!");
   const [washProgress, setWashProgress] = useState(0);
-  const [gameStep, setGameStep] = useState(1); // 1: Load Clothes, 2: Select Mode & Wash, 3: Clean Clothes
-  const [appState, setAppState] = useState('initial'); // 'initial', 'playing'
+  const [gameStep, setGameStep] = useState(1);
+  const [appState, setAppState] = useState('initial');
 
   // Refs for drag and drop
   const washingMachineRef = useRef(null);
+  const touchDragGhostRef = useRef(null); // Ref for the ghost element in touch drag
+  const currentTouchedClothId = useRef(null); // To store the ID of the cloth being touched/dragged
+  const touchDragOffset = useRef({ x: 0, y: 0 }); // Offset for touch drag positioning
 
-  // Handle drag start
-  const handleDragStart = (e, clothId) => {
-    e.dataTransfer.setData('clothId', clothId);
-    e.dataTransfer.effectAllowed = 'move';
-    e.currentTarget.classList.add('dragging-cloth');
-  };
+  // Function to check if a touch position is over the washing machine
+  const isOverWashingMachine = useCallback((clientX, clientY) => {
+    if (!washingMachineRef.current) return false;
+    const rect = washingMachineRef.current.getBoundingClientRect();
+    return (
+      clientX >= rect.left &&
+      clientX <= rect.right &&
+      clientY >= rect.top &&
+      clientY <= rect.bottom
+    );
+  }, []);
 
-  // Handle drag end (clean up class)
-  const handleDragEnd = (e) => {
-    e.currentTarget.classList.remove('dragging-cloth');
-  };
-
-  // Handle drag over the washing machine
-  const handleDragOver = (e) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-    if (washingMachineRef.current) {
-      washingMachineRef.current.classList.add('wash-machine-drag-over');
-    }
-  };
-
-  // Handle drag leave the washing machine
-  const handleDragLeave = () => {
-    if (washingMachineRef.current) {
-      washingMachineRef.current.classList.remove('wash-machine-drag-over');
-    }
-  };
-
-  // Handle drop on the washing machine
-  const handleDrop = (e) => {
-    e.preventDefault();
-    if (washingMachineRef.current) {
-      washingMachineRef.current.classList.remove('wash-machine-drag-over');
-    }
-
-    const clothId = e.dataTransfer.getData('clothId');
+  // Centralized drop logic for both mouse and touch
+  const handleDropLogic = useCallback((clothId) => {
     const droppedCloth = dirtyClothes.find(cloth => cloth.id === clothId);
 
     if (droppedCloth) {
@@ -75,14 +55,118 @@ const App = () => {
         setWashMode(null);
         setWashProgress(0);
 
-        // Move to step 2 if clothes are in the machine
         if (updatedClothesInMachine.length > 0 && gameStep === 1) {
-             setGameStep(2); // Ensure we are in step 2 for controls
+             setGameStep(2);
         }
         return updatedClothesInMachine;
       });
     }
+  }, [dirtyClothes, gameStep]);
+
+  // Mouse Drag Handlers
+  const handleDragStart = (e, clothId) => {
+    e.dataTransfer.setData('clothId', clothId);
+    e.dataTransfer.effectAllowed = 'move';
+    e.currentTarget.classList.add('dragging-cloth');
   };
+
+  const handleDragEnd = (e) => {
+    e.currentTarget.classList.remove('dragging-cloth');
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    if (washingMachineRef.current) {
+      washingMachineRef.current.classList.add('wash-machine-drag-over');
+    }
+  };
+
+  const handleDragLeave = () => {
+    if (washingMachineRef.current) {
+      washingMachineRef.current.classList.remove('wash-machine-drag-over');
+    }
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    if (washingMachineRef.current) {
+      washingMachineRef.current.classList.remove('wash-machine-drag-over');
+    }
+    const clothId = e.dataTransfer.getData('clothId');
+    handleDropLogic(clothId);
+  };
+
+  // Touch Drag Handlers
+  const handleTouchStart = useCallback((e, cloth) => {
+    e.preventDefault(); // Prevent scrolling
+    const touch = e.touches[0];
+    const targetRect = e.currentTarget.getBoundingClientRect();
+
+    currentTouchedClothId.current = cloth.id;
+    touchDragOffset.current = {
+      x: touch.clientX - targetRect.left,
+      y: touch.clientY - targetRect.top,
+    };
+
+    // Create and style the ghost element
+    const ghost = touchDragGhostRef.current;
+    if (ghost) {
+      ghost.style.backgroundImage = `url(${cloth.src})`;
+      ghost.style.width = `${targetRect.width}px`;
+      ghost.style.height = `${targetRect.height}px`;
+      ghost.style.left = `${touch.clientX - touchDragOffset.current.x}px`;
+      ghost.style.top = `${touch.clientY - touchDragOffset.current.y}px`;
+      ghost.style.display = 'block';
+      e.currentTarget.style.opacity = '0'; // Hide original
+    }
+  }, []);
+
+  const handleTouchMove = useCallback((e) => {
+    e.preventDefault(); // Prevent scrolling
+    if (currentTouchedClothId.current && touchDragGhostRef.current) {
+      const touch = e.touches[0];
+      const ghost = touchDragGhostRef.current;
+      ghost.style.left = `${touch.clientX - touchDragOffset.current.x}px`;
+      ghost.style.top = `${touch.clientY - touchDragOffset.current.y}px`;
+
+      if (isOverWashingMachine(touch.clientX, touch.clientY)) {
+        washingMachineRef.current?.classList.add('wash-machine-drag-over');
+      } else {
+        washingMachineRef.current?.classList.remove('wash-machine-drag-over');
+      }
+    }
+  }, [isOverWashingMachine]);
+
+  const handleTouchEnd = useCallback((e) => {
+    if (currentTouchedClothId.current && touchDragGhostRef.current) {
+      const touch = e.changedTouches[0]; // Use changedTouches for touchend
+
+      if (isOverWashingMachine(touch.clientX, touch.clientY)) {
+        handleDropLogic(currentTouchedClothId.current);
+      }
+
+      // Cleanup
+      touchDragGhostRef.current.style.display = 'none';
+      const originalClothElement = document.querySelector(`[data-cloth-id="${currentTouchedClothId.current}"]`);
+      if (originalClothElement) {
+        originalClothElement.style.opacity = '1'; // Show original
+      }
+      washingMachineRef.current?.classList.remove('wash-machine-drag-over');
+      currentTouchedClothId.current = null;
+    }
+  }, [handleDropLogic, isOverWashingMachine]);
+
+  // Add global touch event listeners for the ghost element
+  useEffect(() => {
+    document.addEventListener('touchmove', handleTouchMove, { passive: false });
+    document.addEventListener('touchend', handleTouchEnd);
+    return () => {
+      document.removeEventListener('touchmove', handleTouchMove);
+      document.removeEventListener('touchend', handleTouchEnd);
+    };
+  }, [handleTouchMove, handleTouchEnd]);
+
 
   // Handle wash mode selection
   const selectWashMode = (mode) => {
@@ -145,7 +229,7 @@ const App = () => {
     setMessage("Game reset! Drag clothes into the washing machine.");
     setWashProgress(0);
     setGameStep(1);
-    setAppState('initial'); // Reset to initial screen
+    setAppState('initial');
   };
 
   const startGame = () => {
@@ -154,11 +238,8 @@ const App = () => {
   };
 
   const exploreVoltasBeko = () => {
-    // This function would typically navigate to the Voltas Beko website
-    // For this Canvas environment, we'll just log a message or open a placeholder link
     console.log("Exploring Voltas Beko Washing Machines!");
-    // Example: window.open('https://www.voltasbeko.com', '_blank');
-    alert("Redirecting to Voltas Beko website for more info!"); // Using alert for demo purpose
+    alert("Redirecting to Voltas Beko website for more info!");
   };
 
   return (
@@ -191,7 +272,7 @@ const App = () => {
             {/* Pulsating Washing Machine Icon */}
             <div className="relative w-32 h-32 flex items-center justify-center">
               <div className="w-24 h-24 bg-blue-300 rounded-full flex items-center justify-center opacity-70 animate-pulse-slow">
-                <span className="text-6xl">🧺</span> {/* Washing machine emoji */}
+                <span className="text-6xl">🧺</span>
               </div>
               {/* Initial Bubbles */}
               {initialBubbles.map((text, index) => (
@@ -233,17 +314,16 @@ const App = () => {
                       key={cloth.id}
                       draggable
                       onDragStart={(e) => handleDragStart(e, cloth.id)}
+                      onTouchStart={(e) => handleTouchStart(e, cloth)}
                       onDragEnd={handleDragEnd}
+                      data-cloth-id={cloth.id} // Custom attribute for touch end lookup
                       className="cloth-item flex-shrink-0 cursor-grab bg-amber-100 p-2 rounded-lg shadow-sm hover:scale-110 transition-all duration-300 flex flex-col items-center justify-center transform hover:rotate-3 active:cursor-grabbing border border-amber-200"
-                      // Increased size of cloth image area
                       style={{ width: '90px', height: '90px' }}
                     >
-                      {/* Removed cloth.name display */}
                       <img
                         src={cloth.src}
                         alt={cloth.name}
-                        className="w-full h-full object-contain drop-shadow" // Image fills card
-                        // Fallback in case the image fails to load
+                        className="w-full h-full object-contain drop-shadow"
                         onError={(e) => { e.target.onerror = null; e.target.src = 'https://placehold.co/80x80/cccccc/333333?text=🚫'; }}
                       />
                     </div>
@@ -255,7 +335,7 @@ const App = () => {
               </div>
             )}
 
-            {/* Washing Machine Area - Replaced with image */}
+            {/* Washing Machine Area */}
             <div
               ref={washingMachineRef}
               onDragOver={handleDragOver}
@@ -263,18 +343,14 @@ const App = () => {
               onDrop={handleDrop}
               className={`relative bg-cover bg-center rounded-xl shadow-lg border-2 border-blue-700 flex flex-col items-center justify-center w-full h-[180px] transition-all duration-300 transform hover:scale-[1.01] overflow-hidden`}
               style={{ backgroundImage: `url('https://oxygendigitalshop.com/pub/media/catalog/product/1/9/1923_1.jpg')` }}
-              // Fallback for washing machine image
               onError={(e) => { e.target.onerror = null; e.target.style.backgroundImage = `url('https://placehold.co/280x180/4299e1/ffffff?text=Washing+Machine')`; }}
             >
               <div className="absolute inset-0 bg-blue-800 opacity-20 rounded-xl pointer-events-none z-0"></div>
-              {/* Removed "Machine" title to make way for the image */}
-              {/* <h2 className="text-2xl font-extrabold text-white mb-3 drop-shadow-md z-10">Machine</h2> */}
 
               {/* Clothes and animations remain on top of the image */}
               <div className="relative w-32 h-32 flex items-center justify-center z-10">
                 {/* Washing Machine Drum (conceptual, clothes will render over image's drum area) */}
                 <div className={`absolute inset-0 flex items-center justify-center transition-all duration-500 ${isWashing ? 'opacity-100' : 'opacity-0'}`}>
-                  {/* Visual for spinning water, not a full drum image */}
                   <div className="w-full h-full rounded-full border-2 border-solid border-blue-400 animate-spin-fast opacity-80"></div>
                   <div className="absolute text-4xl animate-pulse text-blue-500">💧</div>
                   <div className="absolute text-xl text-gray-700 font-bold opacity-90 drop-shadow-lg">
@@ -284,7 +360,7 @@ const App = () => {
                     {clothesInMachine.map((cloth, index) => (
                       <img
                         key={`wash-${cloth.id}-${index}`}
-                        src={cloth.src} // Still dirty during wash
+                        src={cloth.src}
                         alt={cloth.name}
                         className="w-8 h-8 object-contain rounded-md transform scale-90"
                         style={{ animationDelay: `${index * 0.1}s` }}
@@ -320,7 +396,6 @@ const App = () => {
                     className={`wash-mode-btn text-xs ${washMode === 'Gentle Wave' ? 'bg-purple-600 text-white shadow-md scale-105' : 'bg-white text-purple-700 hover:bg-purple-100'}`}
                   >
                     Gentle Wave
-
                   </button>
                   <button
                     onClick={() => selectWashMode('Stain Expert')}
@@ -346,9 +421,8 @@ const App = () => {
                       className="wash-feature-bubble absolute bg-purple-200 text-purple-800 text-xs font-semibold px-2 py-1 rounded-full shadow-md animate-float-pop"
                       style={{
                         animationDelay: `${index * 0.3}s`,
-                        // Adjusting positions for a machine image background
-                        top: `${20 + index * 10}%`, // More vertical spread
-                        left: `${10 + (index % 2 === 0 ? 0 : 70)}%`, // Spread left/right
+                        top: `${20 + index * 10}%`,
+                        left: `${10 + (index % 2 === 0 ? 0 : 70)}%`,
                         transform: `translate(-50%, -50%)`,
                       }}
                     >
@@ -362,7 +436,6 @@ const App = () => {
             {/* Control Panel / Clean Clothes Area - Conditional visibility based on steps */}
             {(gameStep === 2 || gameStep === 3) && (
               <div className="flex flex-col items-center bg-teal-50 p-3 rounded-xl shadow-md border border-teal-200 w-full flex-grow">
-                {/* <h2 className="text-xl font-bold text-gray-700 mb-3 border-b border-teal-300 pb-1">Controls / Clean Clothes</h2> */}
                 <div className="flex flex-col space-y-3 w-full items-center">
                   {/* Wash button - Visible in step 2, disabled during wash */}
                   {gameStep === 2 && !isWashing && clothesInMachine.length > 0 && (
@@ -390,13 +463,12 @@ const App = () => {
                         <div
                           key={`clean-${cloth.id}`}
                           className="clean-cloth-item bg-teal-100 p-2 rounded-lg shadow-sm flex flex-col items-center justify-center animate-pop-in border border-teal-200"
-                          style={{ width: '90px', height: '90px' }} // Increased size for clean clothes too
+                          style={{ width: '90px', height: '90px' }}
                         >
                           <img
                             src={cloth.cleanSrc}
                             alt={`Clean ${cloth.name}`}
                             className="w-full h-full object-contain animate-sparkle-loop drop-shadow-md"
-                            // Fallback for clean clothes image
                             onError={(e) => { e.target.onerror = null; e.target.src = 'https://placehold.co/80x80/a7f3d0/374151?text=✨'; }}
                           />
                         </div>
@@ -426,6 +498,19 @@ const App = () => {
             )}
           </div>
         )}
+        {/* Touch Drag Ghost Element */}
+        <div
+          ref={touchDragGhostRef}
+          style={{
+            position: 'fixed',
+            pointerEvents: 'none',
+            zIndex: 9999,
+            display: 'none',
+            backgroundSize: 'contain',
+            backgroundRepeat: 'no-repeat',
+            backgroundPosition: 'center',
+          }}
+        />
 
         {/* Custom CSS for enhanced aesthetics and animations */}
         <style>
