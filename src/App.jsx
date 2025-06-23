@@ -99,7 +99,7 @@ const App = () => {
 
   // Touch Drag Handlers
   const handleTouchStart = useCallback((e, cloth) => {
-    e.preventDefault(); // Prevent scrolling
+    e.preventDefault(); // Prevent default touch actions like scrolling
     const touch = e.touches[0];
     const targetRect = e.currentTarget.getBoundingClientRect();
 
@@ -123,7 +123,7 @@ const App = () => {
   }, []);
 
   const handleTouchMove = useCallback((e) => {
-    e.preventDefault(); // Prevent scrolling
+    e.preventDefault(); // Prevent default touch actions like scrolling
     if (currentTouchedClothId.current && touchDragGhostRef.current) {
       const touch = e.touches[0];
       const ghost = touchDragGhostRef.current;
@@ -148,9 +148,10 @@ const App = () => {
 
       // Cleanup
       touchDragGhostRef.current.style.display = 'none';
+      // Find the original element using its data-cloth-id and reset opacity
       const originalClothElement = document.querySelector(`[data-cloth-id="${currentTouchedClothId.current}"]`);
       if (originalClothElement) {
-        originalClothElement.style.opacity = '1'; // Show original
+        originalClothElement.style.opacity = '1'; // Show original again
       }
       washingMachineRef.current?.classList.remove('wash-machine-drag-over');
       currentTouchedClothId.current = null;
@@ -318,7 +319,7 @@ const App = () => {
                       onDragEnd={handleDragEnd}
                       data-cloth-id={cloth.id} // Custom attribute for touch end lookup
                       className="cloth-item flex-shrink-0 cursor-grab bg-amber-100 p-2 rounded-lg shadow-sm hover:scale-110 transition-all duration-300 flex flex-col items-center justify-center transform hover:rotate-3 active:cursor-grabbing border border-amber-200"
-                      style={{ width: '90px', height: '90px' }}
+                      style={{ width: '90px', height: '90px', touchAction: 'none' }} // Added touch-action
                     >
                       <img
                         src={cloth.src}
@@ -342,7 +343,7 @@ const App = () => {
               onDragLeave={handleDragLeave}
               onDrop={handleDrop}
               className={`relative bg-cover bg-center rounded-xl shadow-lg border-2 border-blue-700 flex flex-col items-center justify-center w-full h-[180px] transition-all duration-300 transform hover:scale-[1.01] overflow-hidden`}
-              style={{ backgroundImage: `url('https://oxygendigitalshop.com/pub/media/catalog/product/1/9/1923_1.jpg')` }}
+              style={{ backgroundImage: `url('https://oxygendigitalshop.com/pub/media/catalog/product/1/9/1923_1.jpg')`, touchAction: 'none' }} // Added touch-action
               onError={(e) => { e.target.onerror = null; e.target.style.backgroundImage = `url('https://placehold.co/280x180/4299e1/ffffff?text=Washing+Machine')`; }}
             >
               <div className="absolute inset-0 bg-blue-800 opacity-20 rounded-xl pointer-events-none z-0"></div>
