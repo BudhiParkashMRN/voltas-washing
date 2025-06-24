@@ -27,7 +27,7 @@ const App = () => {
   // Refs for drag and drop
   const washingMachineRef = useRef(null);
   const touchDragGhostRef = useRef(null); // Ref for the ghost element in touch drag
-  const currentTouchedClothId = useRef(null); // To store the ID of the cloth being touched/dragged
+  const currentTouchedClothId = useRef(null); // Ref to store the ID of the cloth being touched/dragged
   const touchDragOffset = useRef({ x: 0, y: 0 }); // Offset for touch drag positioning
 
   // Function to check if a touch position is over the washing machine
@@ -99,11 +99,11 @@ const App = () => {
 
   // Touch Drag Handlers
   const handleTouchStart = useCallback((e, cloth) => {
-    e.preventDefault(); // Prevent default touch actions like scrolling
+    // Only prevent default if we are starting a drag
+    currentTouchedClothId.current = cloth.id;
     const touch = e.touches[0];
     const targetRect = e.currentTarget.getBoundingClientRect();
 
-    currentTouchedClothId.current = cloth.id;
     touchDragOffset.current = {
       x: touch.clientX - targetRect.left,
       y: touch.clientY - targetRect.top,
@@ -123,12 +123,15 @@ const App = () => {
   }, []);
 
   const handleTouchMove = useCallback((e) => {
-    e.preventDefault(); // Prevent default touch actions like scrolling
-    if (currentTouchedClothId.current && touchDragGhostRef.current) {
+    // Only prevent default if we are dragging
+    if (currentTouchedClothId.current) {
+      e.preventDefault(); // Prevent scrolling only during drag
       const touch = e.touches[0];
       const ghost = touchDragGhostRef.current;
-      ghost.style.left = `${touch.clientX - touchDragOffset.current.x}px`;
-      ghost.style.top = `${touch.clientY - touchDragOffset.current.y}px`;
+      if (ghost) {
+        ghost.style.left = `${touch.clientX - touchDragOffset.current.x}px`;
+        ghost.style.top = `${touch.clientY - touchDragOffset.current.y}px`;
+      }
 
       if (isOverWashingMachine(touch.clientX, touch.clientY)) {
         washingMachineRef.current?.classList.add('wash-machine-drag-over');
@@ -168,7 +171,6 @@ const App = () => {
     };
   }, [handleTouchMove, handleTouchEnd]);
 
-
   // Handle wash mode selection
   const selectWashMode = (mode) => {
     setWashMode(mode);
@@ -194,7 +196,7 @@ const App = () => {
       'Quick': 2000,
       'Eco': 4000,
       'Heavy': 6000,
-      'Gentle Wave': 3000, // Assign duration for new modes
+      'Gentle Wave': 3000,
       'Stain Expert': 5000,
       'Steam Wash': 4500,
     };
@@ -244,15 +246,14 @@ const App = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-purple-100 flex items-center justify-center p-2 font-inter">
+    <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-purple-100 flex items-center justify-center p-2 font-inter overflow-y-auto">
       {/* Main game container, simulating a 400px width and adaptive height */}
-      <div className="bg-white rounded-[25px] shadow-2xl p-4 max-w-[400px] w-full h-[580px] flex flex-col items-center space-y-4 border-4 border-purple-300 relative overflow-y-auto">
+      <div className="bg-white rounded-[25px] shadow-2xl p-4 max-w-[400px] w-full h-[580px] flex flex-col items-center space-y-4 border-4 border-purple-300 relative overflow-y-auto touch-auto">
         {/* Voltas Logo */}
         <img
           src="https://pimwp.s3-accelerate.amazonaws.com/2023/11/Untitled-design-64.png"
           alt="Voltas Beko Logo"
           className="absolute w-20 h-8 top-3 right-3 z-50 rounded-md shadow-sm"
-          // Fallback in case the image fails to load
           onError={(e) => { e.target.onerror = null; e.target.src = 'https://placehold.co/80x40/003366/ffffff?text=VOLTAS+BEKO'; }}
         />
 
@@ -267,7 +268,7 @@ const App = () => {
         {appState === 'initial' && (
           <div className="flex flex-col items-center justify-center flex-grow space-y-6 animate-fade-in relative w-full h-full">
             <h1 className="text-xl font-extrabold text-gray-800 text-center drop-shadow-lg">
-               Discover Voltas Beko Washing Machines!
+              Discover Voltas Beko Washing Machines!
             </h1>
 
             {/* Pulsating Washing Machine Icon */}
@@ -317,9 +318,9 @@ const App = () => {
                       onDragStart={(e) => handleDragStart(e, cloth.id)}
                       onTouchStart={(e) => handleTouchStart(e, cloth)}
                       onDragEnd={handleDragEnd}
-                      data-cloth-id={cloth.id} // Custom attribute for touch end lookup
+                      data-cloth-id={cloth.id}
                       className="cloth-item flex-shrink-0 cursor-grab bg-amber-100 p-2 rounded-lg shadow-sm hover:scale-110 transition-all duration-300 flex flex-col items-center justify-center transform hover:rotate-3 active:cursor-grabbing border border-amber-200"
-                      style={{ width: '90px', height: '90px', touchAction: 'none' }} // Added touch-action
+                      style={{ width: '90px', height: '90px', touchAction: 'none' }}
                     >
                       <img
                         src={cloth.src}
@@ -343,7 +344,7 @@ const App = () => {
               onDragLeave={handleDragLeave}
               onDrop={handleDrop}
               className={`relative bg-cover bg-center rounded-xl shadow-lg border-2 border-blue-700 flex flex-col items-center justify-center w-full h-[180px] transition-all duration-300 transform hover:scale-[1.01] overflow-hidden`}
-              style={{ backgroundImage: `url('https://oxygendigitalshop.com/pub/media/catalog/product/1/9/1923_1.jpg')`, touchAction: 'none' }} // Added touch-action
+              style={{ backgroundImage: `url('https://oxygendigitalshop.com/pub/media/catalog/product/1/9/1923_1.jpg')` }}
               onError={(e) => { e.target.onerror = null; e.target.style.backgroundImage = `url('https://placehold.co/280x180/4299e1/ffffff?text=Washing+Machine')`; }}
             >
               <div className="absolute inset-0 bg-blue-800 opacity-20 rounded-xl pointer-events-none z-0"></div>
@@ -521,6 +522,11 @@ const App = () => {
             font-family: 'Inter', sans-serif;
           }
 
+          /* Ensure main container is scrollable */
+          .touch-auto {
+            touch-action: auto !important;
+          }
+
           /* General Button Styles */
           .action-button {
             width: 100%;
@@ -543,7 +549,6 @@ const App = () => {
           .action-button.bg-green-500 { --tw-gradient-from: #10B981; --tw-gradient-to: #059669; border-color: #047857; }
           .action-button.bg-red-500 { --tw-gradient-from: #EF4444; --tw-gradient-to: #DC2626; border-color: #B91C1C; }
           .action-button.bg-blue-500 { --tw-gradient-from: #3B82F6; --tw-gradient-to: #2563EB; border-color: #1D4ED8; }
-
 
           .wash-mode-btn {
             padding: 0.5rem 0.8rem;
@@ -571,7 +576,6 @@ const App = () => {
             background-color: #f3e8ff;
           }
 
-
           /* Dragging feedback */
           .cloth-item.dragging-cloth {
             opacity: 0.7;
@@ -595,7 +599,7 @@ const App = () => {
           }
 
           .animate-fade-in {
-            animation: fadeIn 0.8s ease-out forwards;
+            animation: fadeIn 0.5s ease-out forwards;
           }
           @keyframes fadeIn {
             from { opacity: 0; transform: translateY(10px); }
@@ -606,7 +610,7 @@ const App = () => {
             animation: fadeDown 1s ease-out forwards;
           }
           @keyframes fadeDown {
-            from { opacity: 0; transform: translateY(-15px); }
+            from { opacity: 0.5; transform: translateY(-15px); }
             to { opacity: 1; transform: translateY(0); }
           }
 
@@ -668,7 +672,7 @@ const App = () => {
           .wash-feature-bubble:nth-child(2) { top: 30%; left: 80%; transform: translateY(-50%); animation-delay: 0.4s; }
           .wash-feature-bubble:nth-child(3) { top: 70%; left: 20%; transform: translateY(-50%); animation-delay: 0.7s; }
           .wash-feature-bubble:nth-child(4) { top: 90%; left: 50%; transform: translateX(-50%); animation-delay: 1.0s; }
-            .wash-feature-bubble:nth-child(5) { top: 30%; left: 20%; transform: translateY(-50%); animation-delay: 1.3s; }
+          .wash-feature-bubble:nth-child(5) { top: 30%; left: 20%; transform: translateY(-50%); animation-delay: 1.3s; }
 
           /* Initial Screen Bubbles */
           .initial-bubble {
